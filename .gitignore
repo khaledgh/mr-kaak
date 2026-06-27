@@ -1,0 +1,28 @@
+# Env / secrets
+.env
+*.env
+!.env.example
+
+# Go
+backend/bin/
+backend/tmp/
+*.exe
+*.test
+*.out
+vendor/
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+*.local
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+
+# Docker volumes (if mounted locally)
+backend/.data/

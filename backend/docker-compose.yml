@@ -1,0 +1,102 @@
+# Local development stack: MySQL, Redis, Meilisearch — all free/self-hosted.
+# Start infra only:   docker compose up -d mysql redis meilisearch
+# Start everything:   docker compose up -d --build
+#
+# The api/worker services build from the local Dockerfile. For day-to-day
+# backend dev you can run infra in Docker and `go run ./cmd/api` on the host.
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-restaurant}
+      MYSQL_USER: ${DB_USER:-restaurant}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-restaurant}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-change-me-in-prod-please-32chars-min}
+      MEILI_ENV: ${MEILI_ENV:-development}
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:7700/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BINARY: api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_ADDR: redis:6379
+      MEILI_HOST: http://meilisearch:7700
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BINARY: worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_ADDR: redis:6379
+      MEILI_HOST: http://meilisearch:7700
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+  redis_data:
+  meili_data:

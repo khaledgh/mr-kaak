@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS banners;
+DROP TABLE IF EXISTS coupon_redemptions;
+DROP TABLE IF EXISTS coupons;

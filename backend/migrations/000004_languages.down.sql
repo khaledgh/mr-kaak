@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS ui_strings;
+DROP TABLE IF EXISTS languages;
