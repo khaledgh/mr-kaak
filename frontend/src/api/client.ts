@@ -59,3 +59,19 @@ export function unwrap<T>(env: Envelope<T>): T {
   if (env.error) throw new Error(env.error.message);
   return env.data as T;
 }
+
+// extractApiError reads the structured error message from the API response
+// envelope ({"error":{"code":"...","message":"..."}}). Falls back to the raw
+// Error message or a generic string if the response has no structured body.
+export function extractApiError(err: unknown, fallback = "Something went wrong"): string {
+  if (err && typeof err === "object") {
+    // Axios error — check response.data.error.message
+    const axiosErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+    const apiMsg = axiosErr.response?.data?.error?.message;
+    if (apiMsg) return apiMsg;
+    // Plain Error object
+    if (axiosErr.message) return axiosErr.message;
+  }
+  return fallback;
+}
+

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/endpoints";
+import { extractApiError } from "@/api/client";
 import { useAuth } from "@/stores/auth";
 import { vEmail, vPassword } from "@/lib/validate";
 
@@ -53,7 +54,7 @@ export function LoginPage() {
       setAuth(res.user, res.tokens);
       navigate("/");
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : t("common.error"));
+      setServerError(extractApiError(err, t("common.error")));
     } finally {
       setBusy(false);
     }
