@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/joho/godotenv"
@@ -22,8 +23,25 @@ import (
 var version = "dev"
 
 func main() {
-	// Load .env if present (no-op in prod where env is injected by the platform).
-	_ = godotenv.Load()
+	// Load .env if present.
+	// On a server the binary is often invoked from a different working directory,
+	// so we try two locations in order:
+	//   1. ./.env  (current working directory — works for `go run` and dev)
+	//   2. <binary-dir>/.env  (same folder as the built executable — works for systemd, docker, etc.)
+	// godotenv.Load silently no-ops when the file is absent, so we log a warning
+	// only when both locations miss, to help diagnose startup failures like this one.
+	envLoaded := false
+	if err := godotenv.Load(); err == nil {
+		envLoaded = true
+	} else if exe, err2 := os.Executable(); err2 == nil {
+		dir := filepath.Dir(exe)
+		if err3 := godotenv.Load(filepath.Join(dir, ".env")); err3 == nil {
+			envLoaded = true
+		}
+	}
+	if !envLoaded {
+		slog.Warn(".env file not found in working dir or binary dir; relying on system environment")
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
