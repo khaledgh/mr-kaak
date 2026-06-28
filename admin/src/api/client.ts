@@ -34,8 +34,10 @@ http.interceptors.response.use(
 
     async function refreshAccess(token: string): Promise<string | null> {
       try {
+        const baseURL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+        const url = baseURL.startsWith("http") ? `${baseURL}/auth/refresh` : `/api/v1/auth/refresh`;
         const { data } = await axios.post<Envelope<{ tokens: TokenPair }>>(
-          "/api/v1/auth/refresh",
+          url,
           { refresh_token: token },
         );
         if (data.data?.tokens) {
