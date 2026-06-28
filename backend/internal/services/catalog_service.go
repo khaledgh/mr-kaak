@@ -35,13 +35,14 @@ type CatalogService struct {
 	cache         *cache.Cache
 	indexer       SearchIndexer
 	defaultLocale string
+	baseURL       string
 }
 
-func NewCatalogService(catalog *repository.CatalogRepo, tr *repository.TranslationRepo, c *cache.Cache, indexer SearchIndexer, defaultLocale string) *CatalogService {
+func NewCatalogService(catalog *repository.CatalogRepo, tr *repository.TranslationRepo, c *cache.Cache, indexer SearchIndexer, defaultLocale, baseURL string) *CatalogService {
 	if indexer == nil {
 		indexer = noopIndexer{}
 	}
-	return &CatalogService{catalog: catalog, translations: tr, cache: c, indexer: indexer, defaultLocale: defaultLocale}
+	return &CatalogService{catalog: catalog, translations: tr, cache: c, indexer: indexer, defaultLocale: defaultLocale, baseURL: strings.TrimRight(baseURL, "/")}
 }
 
 // GetMenu returns the active menu for a locale, served from cache when warm.
@@ -63,6 +64,12 @@ func (s *CatalogService) loadMenu(ctx context.Context, locale string) ([]models.
 	if err := s.translateCategories(ctx, cats, locale); err != nil {
 		return nil, err
 	}
+	for i := range cats {
+		cats[i].ImageURL = s.resolveURL(cats[i].ImageURL)
+		for j := range cats[i].Products {
+			cats[i].Products[j].ImageURL = s.resolveURL(cats[i].Products[j].ImageURL)
+		}
+	}
 	return cats, nil
 }
 
@@ -79,6 +86,7 @@ func (s *CatalogService) GetProductBySlug(ctx context.Context, slug, locale stri
 	}
 	res := i18n.NewResolver(s.defaultLocale, tr)
 	applyProductText(res, p, locale)
+	p.ImageURL = s.resolveURL(p.ImageURL)
 	return p, nil
 }
 
@@ -98,6 +106,7 @@ func (s *CatalogService) ListCategories(ctx context.Context, locale string, acti
 	res := i18n.NewResolver(s.defaultLocale, tr)
 	for i := range cats {
 		applyCategoryText(res, &cats[i], locale)
+		cats[i].ImageURL = s.resolveURL(cats[i].ImageURL)
 	}
 	return cats, nil
 }
@@ -150,7 +159,7 @@ func (s *CatalogService) AdminListCategories(ctx context.Context) ([]AdminCatego
 	for i, c := range cats {
 		out[i] = AdminCategoryDTO{
 			ID: c.ID, Slug: c.Slug, SortOrder: c.SortOrder,
-			ImageURL: c.ImageURL, IsActive: c.IsActive,
+			ImageURL: s.resolveURL(c.ImageURL), IsActive: c.IsActive,
 			Translations: trMap[c.ID],
 		}
 	}
@@ -183,7 +192,7 @@ func (s *CatalogService) AdminListProducts(ctx context.Context, categoryID uint6
 			ID: p.ID, CategoryID: p.CategoryID, Slug: p.Slug,
 			PricingMode: string(p.PricingMode), BasePriceCents: p.BasePriceCents,
 			IsPreorder: p.IsPreorder, PreorderLeadHours: p.PreorderLeadHours,
-			IsAvailable: p.IsAvailable, ImageURL: p.ImageURL,
+			IsAvailable: p.IsAvailable, ImageURL: s.resolveURL(p.ImageURL),
 			Allergens: allergens, SortOrder: p.SortOrder,
 			Translations:   trMap[p.ID],
 			Variants:       p.Variants,
@@ -222,7 +231,7 @@ func (s *CatalogService) CreateCategory(ctx context.Context, in CategoryInput) (
 	c := &models.Category{
 		Slug:      strings.ToLower(strings.TrimSpace(in.Slug)),
 		SortOrder: in.SortOrder,
-		ImageURL:  in.ImageURL,
+		ImageURL:  toRelativePath(in.ImageURL),
 		IsActive:  derefBool(in.IsActive, true),
 	}
 	if err := s.catalog.CreateCategory(ctx, c); err != nil {
@@ -245,7 +254,7 @@ func (s *CatalogService) UpdateCategory(ctx context.Context, id uint64, in Categ
 	}
 	c.Slug = strings.ToLower(strings.TrimSpace(in.Slug))
 	c.SortOrder = in.SortOrder
-	c.ImageURL = in.ImageURL
+	c.ImageURL = toRelativePath(in.ImageURL)
 	c.IsActive = derefBool(in.IsActive, c.IsActive)
 	if err := s.catalog.UpdateCategory(ctx, c); err != nil {
 		if repository.IsDuplicateKey(err) {
@@ -308,7 +317,7 @@ func (s *CatalogService) CreateProduct(ctx context.Context, in ProductInput) (*m
 		IsPreorder:        in.IsPreorder,
 		PreorderLeadHours: in.PreorderLeadHours,
 		IsAvailable:       derefBool(in.IsAvailable, true),
-		ImageURL:          in.ImageURL,
+		ImageURL:          toRelativePath(in.ImageURL),
 		Allergens:         models.Allergens(in.Allergens),
 		SortOrder:         in.SortOrder,
 	}
@@ -344,7 +353,7 @@ func (s *CatalogService) UpdateProduct(ctx context.Context, id uint64, in Produc
 	p.IsPreorder = in.IsPreorder
 	p.PreorderLeadHours = in.PreorderLeadHours
 	p.IsAvailable = derefBool(in.IsAvailable, p.IsAvailable)
-	p.ImageURL = in.ImageURL
+	p.ImageURL = toRelativePath(in.ImageURL)
 	p.Allergens = models.Allergens(in.Allergens)
 	p.SortOrder = in.SortOrder
 	if err := s.catalog.UpdateProduct(ctx, p); err != nil {
@@ -419,6 +428,7 @@ func (s *CatalogService) hydrateCategory(ctx context.Context, c *models.Category
 		return nil, err
 	}
 	applyCategoryText(i18n.NewResolver(s.defaultLocale, tr), c, locale)
+	c.ImageURL = s.resolveURL(c.ImageURL)
 	return c, nil
 }
 
@@ -489,4 +499,12 @@ func mapNotFound(err error) error {
 		return ErrNotFound
 	}
 	return err
+}
+
+// resolveURL prepends the public base URL to relative paths.
+func (s *CatalogService) resolveURL(raw string) string {
+	if raw == "" || strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		return raw
+	}
+	return s.baseURL + raw
 }

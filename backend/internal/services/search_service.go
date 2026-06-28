@@ -20,10 +20,11 @@ type SearchService struct {
 	catalog       *repository.CatalogRepo
 	translations  *repository.TranslationRepo
 	defaultLocale string
+	baseURL       string
 }
 
-func NewSearchService(meili *search.Client, catalog *repository.CatalogRepo, tr *repository.TranslationRepo, defaultLocale string) *SearchService {
-	return &SearchService{meili: meili, catalog: catalog, translations: tr, defaultLocale: defaultLocale}
+func NewSearchService(meili *search.Client, catalog *repository.CatalogRepo, tr *repository.TranslationRepo, defaultLocale, baseURL string) *SearchService {
+	return &SearchService{meili: meili, catalog: catalog, translations: tr, defaultLocale: defaultLocale, baseURL: strings.TrimRight(baseURL, "/")}
 }
 
 // SearchResult is a lightweight, locale-resolved search hit.
@@ -52,7 +53,7 @@ func (s *SearchService) Search(ctx context.Context, query, locale string, limit 
 	// Prefer Meilisearch; on any error degrade to the DB.
 	if s.meili != nil {
 		if hits, err := s.meili.Search(ctx, query, true, limit); err == nil {
-			return mapMeiliHits(hits, locale), nil
+			return s.mapMeiliHits(hits, locale), nil
 		} else {
 			logger.FromContext(ctx).Warn("meili search failed; using DB fallback", slog.Any("err", err))
 		}
@@ -80,7 +81,7 @@ func (s *SearchService) dbSearch(ctx context.Context, query, locale string, limi
 			Slug:      p.Slug,
 			Name:      res.Field(models.EntityProduct, p.ID, models.FieldName, locale),
 			PriceFrom: priceFrom(p),
-			ImageURL:  p.ImageURL,
+			ImageURL:  s.resolveURL(p.ImageURL),
 			Source:    "db",
 		})
 	}
@@ -101,7 +102,7 @@ func priceFrom(p *models.Product) int64 {
 	return p.BasePriceCents
 }
 
-func mapMeiliHits(hits []search.SearchHit, locale string) []SearchResult {
+func (s *SearchService) mapMeiliHits(hits []search.SearchHit, locale string) []SearchResult {
 	out := make([]SearchResult, 0, len(hits))
 	for _, h := range hits {
 		r := SearchResult{Source: "meili"}
@@ -109,7 +110,8 @@ func mapMeiliHits(hits []search.SearchHit, locale string) []SearchResult {
 			r.ID = uint64(v)
 		}
 		r.Slug, _ = h["slug"].(string)
-		r.ImageURL, _ = h["image_url"].(string)
+		img, _ := h["image_url"].(string)
+		r.ImageURL = s.resolveURL(img)
 		if v, ok := h["price_from"].(float64); ok {
 			r.PriceFrom = int64(v)
 		}
@@ -121,4 +123,11 @@ func mapMeiliHits(hits []search.SearchHit, locale string) []SearchResult {
 		out = append(out, r)
 	}
 	return out
+}
+
+func (s *SearchService) resolveURL(raw string) string {
+	if raw == "" || strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		return raw
+	}
+	return s.baseURL + raw
 }

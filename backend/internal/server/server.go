@@ -99,7 +99,7 @@ func registerRoutes(e *echo.Echo, d Deps) {
 	enqueuer := jobs.NewEnqueuer(d.Config.Redis)
 
 	// Storage (local disk; swappable for S3 later).
-	store, err := storage.NewLocal(d.Config.Media.UploadDir, d.Config.Media.PublicBaseURL)
+	store, err := storage.NewLocal(d.Config.Media.UploadDir)
 	if err != nil {
 		d.Logger.Error("failed to initialize local storage", slog.Any("err", err))
 		panic(err)
@@ -128,12 +128,12 @@ func registerRoutes(e *echo.Echo, d Deps) {
 	// Services.
 	authSvc := services.NewAuthService(userRepo, jwtManager)
 	userSvc := services.NewUserService(userRepo, addressRepo)
-	catalogSvc := services.NewCatalogService(catalogRepo, translationRepo, c, enqueuer, d.Config.I18n.DefaultLocale)
-	searchSvc := services.NewSearchService(meili, catalogRepo, translationRepo, d.Config.I18n.DefaultLocale)
+	catalogSvc := services.NewCatalogService(catalogRepo, translationRepo, c, enqueuer, d.Config.I18n.DefaultLocale, d.Config.Media.PublicBaseURL)
+	searchSvc := services.NewSearchService(meili, catalogRepo, translationRepo, d.Config.I18n.DefaultLocale, d.Config.Media.PublicBaseURL)
 	languageSvc := services.NewLanguageService(languageRepo)
 	zoneSvc := services.NewZoneService(zoneRepo)
 	couponSvc := services.NewCouponService(couponRepo)
-	bannerSvc := services.NewBannerService(bannerRepo)
+	bannerSvc := services.NewBannerService(bannerRepo, d.Config.Media.PublicBaseURL)
 	orderSvc := services.NewOrderService(orderRepo, catalogRepo, translationRepo, addressRepo,
 		settingsRepo, zoneSvc, couponSvc, d.Config.I18n.DefaultLocale, d.Config.I18n.Currency).
 		WithRealtime(publisher, enqueuer)
@@ -161,7 +161,7 @@ func registerRoutes(e *echo.Echo, d Deps) {
 
 	// Media subsystem.
 	mediaRepo := repository.NewMediaRepo(d.DB)
-	mediaSvc := services.NewMediaService(mediaRepo, store,
+	mediaSvc := services.NewMediaService(mediaRepo, store, d.Config.Media.PublicBaseURL,
 		d.Config.Media.MaxBytes, d.Config.Media.AllowedMIME)
 	handlers.NewMediaHandler(mediaSvc).Register(api, jwtAuth, adminOnly)
 }

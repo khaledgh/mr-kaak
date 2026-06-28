@@ -27,14 +27,16 @@ type mediaRepo interface {
 type MediaService struct {
 	repo        mediaRepo
 	store       storage.Storage
+	baseURL     string
 	maxBytes    int64
 	allowedMIME []string
 }
 
-func NewMediaService(repo mediaRepo, store storage.Storage, maxBytes int64, allowedMIME []string) *MediaService {
+func NewMediaService(repo mediaRepo, store storage.Storage, baseURL string, maxBytes int64, allowedMIME []string) *MediaService {
 	return &MediaService{
 		repo:        repo,
 		store:       store,
+		baseURL:     strings.TrimRight(baseURL, "/"),
 		maxBytes:    maxBytes,
 		allowedMIME: allowedMIME,
 	}
@@ -120,7 +122,7 @@ func (s *MediaService) Upload(ctx context.Context, in UploadInput) (*MediaItem, 
 		return nil, err
 	}
 
-	return toMediaItem(m), nil
+	return s.toMediaItem(m), nil
 }
 
 func (s *MediaService) List(ctx context.Context, p pagination.Params, q string) ([]MediaItem, int64, error) {
@@ -130,7 +132,7 @@ func (s *MediaService) List(ctx context.Context, p pagination.Params, q string) 
 	}
 	out := make([]MediaItem, len(rows))
 	for i := range rows {
-		out[i] = *toMediaItem(&rows[i])
+		out[i] = *s.toMediaItem(&rows[i])
 	}
 	return out, total, nil
 }
@@ -149,11 +151,21 @@ func (s *MediaService) Delete(ctx context.Context, id uint64) error {
 	return nil
 }
 
-func toMediaItem(m *models.Media) *MediaItem {
+// resolveURL prepends the public base URL to relative paths (starting with /).
+// Absolute URLs (already containing a scheme) are returned as-is for backward
+// compatibility with any legacy records.
+func (s *MediaService) resolveURL(raw string) string {
+	if raw == "" || strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		return raw
+	}
+	return s.baseURL + raw
+}
+
+func (s *MediaService) toMediaItem(m *models.Media) *MediaItem {
 	return &MediaItem{
 		ID:           m.ID,
-		URL:          m.URL,
-		ThumbURL:     m.ThumbURL,
+		URL:          s.resolveURL(m.URL),
+		ThumbURL:     s.resolveURL(m.ThumbURL),
 		OriginalName: m.OriginalName,
 		MIME:         m.MIME,
 		SizeBytes:    m.SizeBytes,
