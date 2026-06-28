@@ -26,7 +26,7 @@ type ValidateCouponInput struct {
 // BannerInput is the admin create/update payload for a banner.
 type BannerInput struct {
 	Title     string     `json:"title" validate:"omitempty,max=160"`
-	ImageURL  string     `json:"image_url" validate:"required,url,max=500"`
+	ImageURL  string     `json:"image_url" validate:"required,max=500"`
 	LinkURL   string     `json:"link_url" validate:"omitempty,url,max=500"`
 	SortOrder int        `json:"sort_order" validate:"omitempty,min=0"`
 	StartsAt  *time.Time `json:"starts_at"`

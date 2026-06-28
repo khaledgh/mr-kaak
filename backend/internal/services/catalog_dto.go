@@ -10,7 +10,7 @@ type LocalizedText struct {
 type CategoryInput struct {
 	Slug      string `json:"slug" validate:"required,max=140,slug"`
 	SortOrder int    `json:"sort_order" validate:"omitempty,min=0"`
-	ImageURL  string `json:"image_url" validate:"omitempty,url,max=500"`
+	ImageURL  string `json:"image_url" validate:"omitempty,max=500"`
 	IsActive  *bool  `json:"is_active"`
 	// Translations maps locale -> {name, description}. The default locale entry
 	// is required so a label is never empty.
@@ -54,7 +54,7 @@ type ProductInput struct {
 	IsPreorder        bool                     `json:"is_preorder"`
 	PreorderLeadHours int                      `json:"preorder_lead_hours" validate:"min=0"`
 	IsAvailable       *bool                    `json:"is_available"`
-	ImageURL          string                   `json:"image_url" validate:"omitempty,url,max=500"`
+	ImageURL          string                   `json:"image_url" validate:"omitempty,max=500"`
 	Allergens         []string                 `json:"allergens" validate:"omitempty,dive,max=40"`
 	SortOrder         int                      `json:"sort_order" validate:"omitempty,min=0"`
 	Translations      map[string]LocalizedText `json:"translations" validate:"required,min=1,dive"`

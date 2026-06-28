@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
     resolve: { alias: { "@": path.resolve(__dirname, "src") } },
     server: {
       port,
-      proxy: { "/api": backendUrl },
+      proxy: { "/api": backendUrl, "/uploads": backendUrl },
     },
   };
 });

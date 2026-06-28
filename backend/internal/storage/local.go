@@ -41,7 +41,7 @@ func (s *LocalStorage) Save(_ context.Context, key string, r io.Reader, _ string
 	if _, err = io.Copy(f, r); err != nil {
 		return "", fmt.Errorf("storage: write file: %w", err)
 	}
-	return s.BaseURL + "/uploads/" + key, nil
+	return "/uploads/" + key, nil
 }
 
 func (s *LocalStorage) Delete(_ context.Context, key string) error {
