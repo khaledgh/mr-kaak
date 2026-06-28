@@ -34,11 +34,12 @@ http.interceptors.response.use(
 
     async function refreshAccess(token: string): Promise<string | null> {
       try {
-        const baseURL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
-        const url = baseURL.startsWith("http") ? `${baseURL}/auth/refresh` : `/api/v1/auth/refresh`;
-        const { data } = await axios.post<Envelope<{ tokens: TokenPair }>>(
-          url,
+        // Reuse the shared instance so refresh follows the same baseURL/proxy
+        // path as every other call (avoids hitting the wrong origin).
+        const { data } = await http.post<Envelope<{ tokens: TokenPair }>>(
+          "/auth/refresh",
           { refresh_token: token },
+          { _retried: true } as never,
         );
         if (data.data?.tokens) {
           setTokens(data.data.tokens);
