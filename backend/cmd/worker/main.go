@@ -55,7 +55,7 @@ func main() {
 	userRepo := repository.NewUserRepo(db)
 	settingsRepo := repository.NewSettingsRepo(db)
 	meili := search.NewClient(cfg.Meili)
-	searchSvc := services.NewSearchService(meili, catalogRepo, translationRepo, cfg.I18n.DefaultLocale)
+	searchSvc := services.NewSearchService(meili, catalogRepo, translationRepo, cfg.I18n.DefaultLocale, cfg.Media.PublicBaseURL)
 	pushSvc := services.NewPushService(pushRepo, cfg.VAPID)
 	metaSvc := services.NewMetaService(settingsRepo, userRepo, orderRepo)
 
