@@ -174,7 +174,7 @@ func Load() (*Config, error) {
 		},
 		Media: Media{
 			UploadDir:     v.str("UPLOAD_DIR", "./uploads"),
-			PublicBaseURL: v.str("PUBLIC_BASE_URL", "http://127.0.0.1:8080"),
+			PublicBaseURL: v.str("PUBLIC_BASE_URL", ""),
 			MaxBytes:      int64(v.intv("MEDIA_MAX_BYTES", 2*1024*1024)),
 			AllowedMIME:   v.csv("MEDIA_ALLOWED_MIME", []string{"image/jpeg", "image/png", "image/webp"}),
 		},
