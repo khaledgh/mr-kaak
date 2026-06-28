@@ -126,8 +126,15 @@ func (s *SearchService) mapMeiliHits(hits []search.SearchHit, locale string) []S
 }
 
 func (s *SearchService) resolveURL(raw string) string {
-	if raw == "" || strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+	if raw == "" {
 		return raw
+	}
+	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		if i := strings.Index(raw[8:], "/"); i != -1 {
+			raw = raw[8+i:]
+		} else {
+			return raw
+		}
 	}
 	return s.baseURL + raw
 }

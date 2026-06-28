@@ -503,8 +503,15 @@ func mapNotFound(err error) error {
 
 // resolveURL prepends the public base URL to relative paths.
 func (s *CatalogService) resolveURL(raw string) string {
-	if raw == "" || strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+	if raw == "" {
 		return raw
+	}
+	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		if i := strings.Index(raw[8:], "/"); i != -1 {
+			raw = raw[8+i:]
+		} else {
+			return raw
+		}
 	}
 	return s.baseURL + raw
 }

@@ -151,12 +151,20 @@ func (s *MediaService) Delete(ctx context.Context, id uint64) error {
 	return nil
 }
 
-// resolveURL prepends the public base URL to relative paths (starting with /).
-// Absolute URLs (already containing a scheme) are returned as-is for backward
-// compatibility with any legacy records.
+// resolveURL always returns a URL rooted at the current baseURL.
+// Legacy records that had the old host baked in (e.g. http://127.0.0.1:8080/uploads/...)
+// are rewritten by stripping the scheme+host and re-prepending baseURL.
 func (s *MediaService) resolveURL(raw string) string {
-	if raw == "" || strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+	if raw == "" {
 		return raw
+	}
+	// Strip scheme+host from absolute URLs so legacy records are fixed on the fly.
+	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		if i := strings.Index(raw[8:], "/"); i != -1 {
+			raw = raw[8+i:] // keep the path portion starting with "/"
+		} else {
+			return raw // no path at all — return as-is
+		}
 	}
 	return s.baseURL + raw
 }

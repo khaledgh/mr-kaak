@@ -73,8 +73,15 @@ func (s *BannerService) Delete(ctx context.Context, id uint64) error {
 }
 
 func (s *BannerService) resolveURL(raw string) string {
-	if raw == "" || strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+	if raw == "" {
 		return raw
+	}
+	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+		if i := strings.Index(raw[8:], "/"); i != -1 {
+			raw = raw[8+i:]
+		} else {
+			return raw
+		}
 	}
 	return s.baseURL + raw
 }
