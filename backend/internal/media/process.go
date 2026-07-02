@@ -11,6 +11,8 @@ import (
 	_ "image/png"
 	"io"
 
+	_ "golang.org/x/image/webp"
+
 	"github.com/disintegration/imaging"
 )
 
